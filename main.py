@@ -17,8 +17,7 @@ Create a menu for interactions with the user
 I like the idea of creating class Meta and building shapes using functions instead
 and connecting them using quads
 
-do i put colmaps in classes?
-How to update the attributes of the members dynamically?     e.g.:
+do i put colmaps in classes?     e.g.:
 t1 = Tile(0, "Phi", 0, 30)
 Tile.change_palette("Phi", (0, 0, 0))
 

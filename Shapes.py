@@ -143,5 +143,5 @@ def build_supertiles(base_tiles: dict[str, Meta]) -> dict[str, Meta]:
 
         sup.quad = supertile_quad
         supertile[main_type] = sup
-        # draw_polygon(sup.quad)
+    # draw_polygon(sup.quad)
     return supertile

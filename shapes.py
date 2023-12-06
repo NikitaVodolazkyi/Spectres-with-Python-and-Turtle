@@ -1,6 +1,11 @@
-from TurtleTools import *
+from __future__ import annotations
+from turtle_tools import *
 from math import *
-screen.colormode(255)
+
+
+spectre_types = [
+    'Gamma', 'Delta', 'Theta', 'Lambda', 'Xi',
+    'Pi', 'Sigma', 'Phi', 'Psi']
 
 
 palette = {
@@ -21,55 +26,52 @@ palette = {
 class Tile:
     global palette
 
-    def __init__(self, vertices, quad, tile_type):
+    def __init__(self, vertices, quad, tile_type: str):
         self.vertices = vertices
         self.quad = quad
         self.tile_type = tile_type
 
     @property
-    def colour(self):
+    def colour(self) -> list[int]:
         return palette[self.tile_type]
 
-    def draw(self, T):
+    def draw(self, T: Matrix):
         draw_polygon(self.vertices, T, self.colour)
 
 
+# Consider changing the drawing method and how the transformations are stored
 class Meta:
     def __init__(self):
         self.children = []
         self.quad = []
 
-    def add_child(self, tile, T):
+    def add_child(self, tile: Meta | Tile, T: Matrix) -> None:
         self.children.append({'tile': tile, 'transf': T})
 
-    def draw(self, M):
+    def draw(self, M: Matrix) -> None:
         for child in self.children:
-            child['tile'].draw(mul(M, child['transf']))
+            child['tile'].draw(M * child['transf'])
 
 
 def build_spectre_base() -> dict[str, Meta]:
-    spectre_types = [
-        'Gamma', 'Delta', 'Theta', 'Lambda', 'Xi',
-        'Pi', 'Sigma', 'Phi', 'Psi']
 
     spectre = (
-        pt(0, 0),
-        pt(1.0, 0.0),
-        pt(1.5, -0.8660254037844386),
-        pt(2.366025403784439, -0.36602540378443865),
-        pt(2.366025403784439, 0.6339745962155614),
-        pt(3.366025403784439, 0.6339745962155614),
-        pt(3.866025403784439, 1.5),
-        pt(3.0, 2.0),
-        pt(2.133974596215561, 1.5),
-        pt(1.6339745962155614, 2.3660254037844393),
-        pt(0.6339745962155614, 2.3660254037844393),
-        pt(-0.3660254037844386, 2.3660254037844393),
-        pt(-0.866025403784439, 1.5),
-        pt(0.0, 1.0)
+        Point(0, 0),
+        Point(1.0, 0.0),
+        Point(1.5, -0.8660254037844386),
+        Point(2.366025403784439, -0.36602540378443865),
+        Point(2.366025403784439, 0.6339745962155614),
+        Point(3.366025403784439, 0.6339745962155614),
+        Point(3.866025403784439, 1.5),
+        Point(3.0, 2.0),
+        Point(2.133974596215561, 1.5),
+        Point(1.6339745962155614, 2.3660254037844393),
+        Point(0.6339745962155614, 2.3660254037844393),
+        Point(-0.3660254037844386, 2.3660254037844393),
+        Point(-0.866025403784439, 1.5),
+        Point(0.0, 1.0)
     )
 
-    spectre = enlarge(10, spectre)
     spectre_quad = (
         spectre[3], spectre[5], spectre[7], spectre[11]
     )
@@ -77,9 +79,9 @@ def build_spectre_base() -> dict[str, Meta]:
     base = dict((label, Tile(spectre, spectre_quad, label)) for label in spectre_types)
 
     mystic = Meta()
-    mystic.add_child(Tile(spectre, spectre_quad, 'Gamma1'), ident)
+    mystic.add_child(Tile(spectre, spectre_quad, 'Gamma1'), IDENT)
     mystic.add_child(Tile(spectre, spectre_quad, 'Gamma2'),
-                     mul(ttrans(spectre[8]["x"], spectre[8]["y"]), trot(pi / 6)))
+                     Matrix.trans(spectre[8].x, spectre[8].y) * Matrix.rot(pi / 6))
 
     mystic.quad = spectre_quad
     base['Gamma'] = mystic
@@ -94,24 +96,25 @@ def build_supertiles(base_tiles: dict[str, Meta]) -> dict[str, Meta]:
         [60, 3, 1], [0, 2, 0], [60, 3, 1], [60, 3, 1],
         [0, 2, 0], [60, 3, 1], [-120, 3, 3]]
 
-    Ts = [ident]
+    Ts = [IDENT]
     total_ang = 0
-    rotation = ident
+    rotation = IDENT
     new_quad = list(quad)
-    for angle, from_, to in connection_rules:
+    for angle, i_from, i_to in connection_rules:
         total_ang += angle
         if angle != 0:
-            rotation = trot(radians(total_ang))
+            rotation = Matrix.rot(radians(total_ang))
             for i in range(4):
-                new_quad[i] = transPt(rotation, quad[i])
+                new_quad[i] = rotation * quad[i]
 
-        translation = transTo(new_quad[to], transPt(Ts[-1], quad[from_]))
-        Ts.append(mul(translation, rotation))
+        translation = trans_to(new_quad[i_to], Ts[-1] * quad[i_from])
+        Ts.append(translation * rotation)
 
-    # This is x-reflection I don't completely understand how superquad is formed yet
-    R = [-1, 0, 0, 0, 1, 0]
+    # This is x-reflection and IDK why is it here
+    # This can also be optimized
+    R = Matrix([-1, 0, 0, 0, 1, 0])
     for i in range(len(Ts)):
-        Ts[i] = mul(R, Ts[i])
+        Ts[i] = R * Ts[i]
 
     supertile_rules = {
         'Gamma': ['Pi', 'Delta', 'null', 'Theta', 'Sigma', 'Xi', 'Phi', 'Gamma'],
@@ -126,10 +129,10 @@ def build_supertiles(base_tiles: dict[str, Meta]) -> dict[str, Meta]:
     }
 
     supertile_quad = [
-        transPt(Ts[6], quad[2]),
-        transPt(Ts[5], quad[1]),
-        transPt(Ts[3], quad[2]),
-        transPt(Ts[0], quad[1])
+        Ts[6] * quad[2],
+        Ts[5] * quad[1],
+        Ts[3] * quad[2],
+        Ts[0] * quad[1]
     ]
 
     supertile = {}
@@ -143,5 +146,5 @@ def build_supertiles(base_tiles: dict[str, Meta]) -> dict[str, Meta]:
 
         sup.quad = supertile_quad
         supertile[main_type] = sup
-    # draw_polygon(sup.quad)
+        # draw_polygon(sup.quad)
     return supertile
